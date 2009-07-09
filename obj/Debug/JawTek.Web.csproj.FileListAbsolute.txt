@@ -3,3 +3,8 @@ C:\Visual Studio 2008\Projects\CustomHandlertest\JawTek.Web\bin\Debug\JawTek.Web
 C:\Visual Studio 2008\Projects\CustomHandlertest\JawTek.Web\obj\Debug\ResolveAssemblyReference.cache
 C:\Visual Studio 2008\Projects\CustomHandlertest\JawTek.Web\obj\Debug\JawTek.Web.dll
 C:\Visual Studio 2008\Projects\CustomHandlertest\JawTek.Web\obj\Debug\JawTek.Web.pdb
+E:\JawTek.Web\obj\Debug\ResolveAssemblyReference.cache
+E:\JawTek.Web\obj\Debug\JawTek.Web.dll
+E:\JawTek.Web\bin\Debug\JawTek.Web.dll
+E:\JawTek.Web\bin\Debug\JawTek.Web.pdb
+E:\JawTek.Web\obj\Debug\JawTek.Web.pdb

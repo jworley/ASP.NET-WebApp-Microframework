@@ -173,7 +173,7 @@ namespace JawTek.Web.Utility.Javascript
     {
         private string _name;
         private string[] _params;
-        private CodeBlock _codeBlock;
+        private JavascriptCollection _codeBlock;
 
         public string Name
         {
@@ -187,7 +187,7 @@ namespace JawTek.Web.Utility.Javascript
             set { this._params = value; }
         }
 
-        public CodeBlock CodeBlock
+        public JavascriptCollection CodeBlock
         {
             get { return this._codeBlock; }
             set { this._codeBlock = value; }
@@ -195,8 +195,10 @@ namespace JawTek.Web.Utility.Javascript
 
         public Function() : this(string.Empty, new CodeBlock(), new string[0]) { }
         public Function(string name, params string[] parameters) : this(name, new CodeBlock(), parameters) { }
-        public Function(string name, CodeBlock codeBlock) : this(name, codeBlock, new string[0]) { }
-        public Function(string name, CodeBlock codeBlock, params string[] parameters)
+        public Function(string name, CodeBlock codeBlock) : this(name, new JavascriptCollection(codeBlock)) { }
+        public Function(string name, CodeBlock codeBlock, params string[] parameters) : this(name, new JavascriptCollection(codeBlock), parameters) { }
+        public Function(string name, JavascriptCollection codeBlock) : this(name, codeBlock, new string[0]) { }
+        public Function(string name, JavascriptCollection codeBlock, params string[] parameters)
         {
             this._name = name;
             this._codeBlock = codeBlock;
@@ -221,6 +223,12 @@ namespace JawTek.Web.Utility.Javascript
     public class JavascriptCollection : JavascriptCode, IChainableCollection<JavascriptCode>
     {
         List<JavascriptCode> coll = new List<JavascriptCode>();
+
+        public JavascriptCollection() { }
+        public JavascriptCollection(JavascriptCode codeBlock)
+        {
+            this.Add(codeBlock);
+        }
 
         #region IChainableCollection<JavascriptCode> Members
 

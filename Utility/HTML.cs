@@ -10,17 +10,79 @@ using JawTek.Web.Utility.CSS;
 using System.Data.Linq.Mapping;
 using System.Text.RegularExpressions;
 using JawTek.Web.Utility.Javascript;
+using JawTek.Web.Config;
 
 namespace JawTek.Web.Utility.HTML
 {
+    /// <summary>
+    /// Enumeration of possible html doctypes.
+    /// </summary>
+    public enum DocType
+    {
+        /// <summary>
+        /// Represents the XHTML 1.0 doctype.
+        /// </summary>
+        XHTML1,
+        /// <summary>
+        /// Represents the HTML 4.01 doctype.
+        /// </summary>
+        HTML401,
+        /// <summary>
+        /// Represents the HTML 5 doctype.
+        /// </summary>
+        HTML5
+    }
+
+    /// <summary>
+    /// Enumeration of html modes.
+    /// </summary>
+    public enum Mode
+    {
+        Strict,
+        Transitional,
+        Frameset
+    }
+
     public static class HTMLUtility
     {
         private static string[] selfClosingTags = new string[] { "area", "base", "basefont", "br", 
             "hr", "input", "img", "link", "meta" };
-        private const string indentString = "\t";
-        private const string defaultCharSet = "utf-8";
+        private static string[] boolAttributes = new string[] { "checked", "declare", "defer",
+            "disabled", "ismap", "multiple", "nohref", "noresize", "readonly", "selected" };
+
+        private static string indentString
+        {
+            get
+            {
+                return WebAppConfiguration.GetConfig().Utility.HTML.IndentString;
+            }
+        }
+        private static string defaultCharSet
+        {
+            get
+            {
+                return WebAppConfiguration.GetConfig().Utility.HTML.CharSet;
+            }
+        }
+        private static DocType defaultDocType
+        {
+            get
+            {
+                return WebAppConfiguration.GetConfig().Utility.HTML.DocType;
+            }
+        }
+        private static Mode defaultMode
+        {
+            get
+            {
+                return WebAppConfiguration.GetConfig().Utility.HTML.Mode;
+            }
+        }
+
         private const string str_indentstring = "JawTek.Web.Utility.HTML.IndentString";
         private const string str_defaultChar = "JawTek.Web.Utility.HTML.DefaultCharSet";
+        private const string str_doctype = "JawTek.Web.Utility.HTML.DocType";
+        private const string str_mode = "JawTek.Web.Utility.HTML.Mode";
 
 
         public static string IndentString
@@ -69,9 +131,54 @@ namespace JawTek.Web.Utility.HTML
                 }
             }
         }
+
+        public static DocType DocType
+        {
+            get
+            {
+                object docType = HttpContext.Current.Items[HTMLUtility.str_doctype];
+                return (docType != null) ? (DocType)docType : HTMLUtility.defaultDocType;
+            }
+            set
+            {
+                if (HttpContext.Current.Items.Contains(str_doctype))
+                {
+                    HttpContext.Current.Items[str_doctype] = value;
+                }
+                else
+                {
+                    HttpContext.Current.Items.Add(str_doctype, value);
+                }
+            }
+        }
+
+        public static Mode Mode
+        {
+            get
+            {
+                object mode = HttpContext.Current.Items[str_mode];
+                return (mode != null) ? (Mode)mode : defaultMode;
+            }
+            set
+            {
+                if (HttpContext.Current.Items.Contains(str_mode))
+                {
+                    HttpContext.Current.Items[str_mode] = value;
+                }
+                else
+                {
+                    HttpContext.Current.Items.Add(str_mode, value);
+                }
+            }
+        }
+
         public static string[] SelfClosingTags
         {
             get { return HTMLUtility.selfClosingTags; }
+        }
+        public static string[] BoolAttributes
+        {
+            get { return boolAttributes; }
         }
         public static string HTMLEncode(string html)
         {
@@ -258,6 +365,10 @@ namespace JawTek.Web.Utility.HTML
                     body.Children.Add(JavascriptUtility.GetScript());
                 }
             }
+            var html = this.Up() as HTML;
+            DocType currentDocType = HTMLUtility.DocType;
+            if (html != null)
+                currentDocType = html.DocType;
             string indent = "";
             for (int i = 0; i < indentLevel; i++)
             {
@@ -265,12 +376,22 @@ namespace JawTek.Web.Utility.HTML
             }
             StringBuilder sb = new StringBuilder();
             sb.AppendFormat("{0}<{1}", new object[] { indent, this.tag });
-            string attr = this.properties.Aggregate<KeyValuePair<string, string>, string>("",
-                (x, y) => x += " " + y.Key + "='" + y.Value + "'");
+            string attr = string.Empty;
+            foreach (var item in this.properties)
+            {
+                if ((currentDocType == DocType.HTML401) && 
+                    (HTMLUtility.BoolAttributes.Contains(item.Key)))
+                    attr += " " + item.Key;
+                else
+                    attr += " " + item.Key + "='" + item.Value + "'";
+            }
             sb.Append(attr);
             if (this.children.Count == 0 && HTMLUtility.SelfClosingTags.Contains(this.tag))
             {
-                sb.Append(" />");
+                if (currentDocType == DocType.HTML401)
+                    sb.Append(">");
+                else
+                    sb.Append(" />");
             }
             else
             {
@@ -749,6 +870,9 @@ namespace JawTek.Web.Utility.HTML
 
     public class HTML : HTMLEntity
     {
+        private DocType _docType;
+        private Mode _mode;
+
         [EditorBrowsable(EditorBrowsableState.Never)]
         public new string ID { get { return null; } set { } }
         [EditorBrowsable(EditorBrowsableState.Never)]
@@ -766,20 +890,84 @@ namespace JawTek.Web.Utility.HTML
             }
         }
 
-        public HTML() : this("http://www.w3.org/1999/xhtml") { }
+        public DocType DocType
+        {
+            get { return this._docType; }
+            set { this._docType = value; }
+        }
+        public Mode Mode
+        {
+            get { return this._mode; }
+            set { this._mode = value; }
+        }
+
+        public HTML() : this(String.Empty) { }
         public HTML(string xmlns) : this(null, xmlns) { }
-        public HTML(HTMLEntity child) : this(child, "http://www.w3.org/1999/xhtml") { }
-        public HTML(HTMLEntity child, string xmlns)
+        public HTML(HTMLEntity child) : this(child, String.Empty) { }
+        public HTML(HTMLEntity child, string xmlns) : this(child, HTMLUtility.DocType, HTMLUtility.Mode, xmlns) { }
+        public HTML(DocType docType, Mode mode, string xmlns) : this(null, docType, mode, xmlns) { }
+        public HTML(HTMLEntity child, DocType docType, Mode mode, string xmlns)
             : base("html", child)
         {
-            this.XMLNS = xmlns;
+            string xhtmlns = "http://www.w3.org/1999/xhtml";
+            this.Mode = mode;
+            this.DocType = docType;
+            if (docType == DocType.XHTML1)
+            {
+                this.XMLNS = (String.IsNullOrEmpty(xmlns)) ? xhtmlns : xmlns;
+            }
         }
 
         public override string ToString(int indentLevel)
         {
-            return "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" " +
-                "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n" +
-                base.ToString(indentLevel);
+            string docType = String.Empty;
+            switch (this.DocType)
+            {
+                case DocType.XHTML1:
+                    switch (this.Mode)
+                    {
+                        case Mode.Strict:
+                            docType = "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" " +
+                                "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">";
+                            break;
+                        case Mode.Transitional:
+                            docType = "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" " +
+                                "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">";
+                            break;
+                        case Mode.Frameset:
+                            docType = "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Frameset//EN\" " +
+                                "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd\">";
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
+                case DocType.HTML401:
+                    switch (this.Mode)
+                    {
+                        case Mode.Strict:
+                            docType = "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" " +
+                                "\"http://www.w3.org/TR/html4/strict.dtd\">";
+                            break;
+                        case Mode.Transitional:
+                            docType = "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" " +
+                                "\"http://www.w3.org/TR/html4/loose.dtd\">";
+                            break;
+                        case Mode.Frameset:
+                            docType = "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Frameset//EN\" " +
+                                "\"http://www.w3.org/TR/html4/frameset.dtd\">"; 
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
+                case DocType.HTML5:
+                    docType = "<!DOCTYPE HTML>";
+                    break;
+                default:
+                    break;
+            }
+            return docType + "\n" + base.ToString(indentLevel);
         }
     }
 
@@ -1030,8 +1218,20 @@ namespace JawTek.Web.Utility.HTML
 
         public override string ToString(int indentLevel)
         {
-            string s = this.CssRules.ToString(indentLevel + 1).Trim();
-            this.Children.Clear().Add(new TextNode(s));
+            if (this.cssRules.Count > 0)
+            {
+                string indent = "";
+                for (int i = 0; i < indentLevel + 1; i++)
+                {
+                    indent += HTMLUtility.IndentString;
+                }
+                StringBuilder sb = new StringBuilder();
+                sb.AppendLine("/*<![CDATA[/**/");
+                sb.AppendLine(indent + this.cssRules.ToString(indentLevel + 1).Trim());
+                sb.AppendLine(indent + "/*]]>*/");
+
+                this.Children.Clear().Add(new TextNode(sb.ToString()));
+            }
             return base.ToString(indentLevel);
         }
     }

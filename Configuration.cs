@@ -3,6 +3,7 @@ using System.Configuration;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using JawTek.Web.Utility.HTML;
 
 namespace JawTek.Web.Config
 {
@@ -44,9 +45,69 @@ namespace JawTek.Web.Config
             }
         }
 
+        [ConfigurationProperty("utility", IsRequired = false)]
+        public WebAppUtilityConfiguration Utility
+        {
+            get
+            {
+                return this["utility"] as WebAppUtilityConfiguration;
+            }
+        }
+
         public static WebAppConfiguration GetConfig()
         {
             return ConfigurationManager.GetSection("webAppConfig") as WebAppConfiguration;
+        }
+    }
+
+    class WebAppUtilityConfiguration : ConfigurationElement
+    {
+        [ConfigurationProperty("html",IsRequired = false)]
+        public WebAppHTMLConfiguration HTML
+        {
+            get
+            {
+                return this["html"] as WebAppHTMLConfiguration;
+            }
+        }
+    }
+
+    class WebAppHTMLConfiguration : ConfigurationElement
+    {
+        [ConfigurationProperty("indentstring", IsRequired = false, DefaultValue="\t")]
+        public string IndentString
+        {
+            get
+            {
+                return this["indentstring"] as string;
+            }
+        }
+
+        [ConfigurationProperty("charset", IsRequired = false, DefaultValue = "utf-8")]
+        public string CharSet
+        {
+            get
+            {
+                return this["charset"] as string;
+            }
+        }
+
+        [ConfigurationProperty("doctype", IsRequired = false, DefaultValue = DocType.XHTML1)]
+        public DocType DocType
+        {
+            get
+            {
+                return (DocType)this["doctype"];
+            }
+        }
+
+        [ConfigurationProperty("mode", IsRequired = false, DefaultValue = Mode.Transitional)]
+        public Mode Mode
+        {
+            get
+            {
+                return (Mode)this["mode"];
+            }
         }
     }
 
