@@ -988,7 +988,7 @@ namespace JawTek.Web.Utility.HTML
 
         public Head AddTitle(string title)
         {
-            foreach (var i in this.Children.ToArray().Where(x => x as Title != null))
+            foreach (var i in this.Children.ToArray().Where(x => x.Tag == "title"))
             {
                 this.Children.Remove(i);
             }
