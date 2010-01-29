@@ -332,16 +332,140 @@ namespace JawTek.Web.Utility.HTML
             return HTMLUtility.ResolveURL(url);
         }
 
+        public bool MatchCSS(string selector)
+        {
+            Regex cssMatch = new Regex(@"^(?'tag'[a-zA-Z]*)?(#(?'id'.*))?(\.(?'class'.*))?");
+            Match match = cssMatch.Match(selector);
+            string tag = match.Groups["tag"].Value;
+            string id = match.Groups["id"].Value;
+            string cls = match.Groups["class"].Value;
+
+            bool tagMatch = false;
+            if (!String.IsNullOrEmpty(tag))
+                tagMatch = this.Tag == tag;
+            else
+                tagMatch = true;
+
+            bool idMatch = false;
+            if (!String.IsNullOrEmpty(id))
+                idMatch = this.ID == id;
+            else
+                idMatch = true;
+
+            bool clsMatch = false;
+            if (!String.IsNullOrEmpty(cls))
+                clsMatch = this.Classes.Any(s => s == cls);
+            else
+                clsMatch = true;
+
+            return tagMatch && idMatch && clsMatch;
+        }
+
+        public HTMLEntity[] Ancestors()
+        {
+            return Ancestors(string.Empty);
+        }
+
+        internal HTMLEntity[] Ancestors(string CSSselector)
+        {
+            List<HTMLEntity> coll = new List<HTMLEntity>();
+            HTMLEntity up = this.parent;
+
+            while (up != null)
+            {
+                if (!string.IsNullOrEmpty(CSSselector))
+                {
+                    if (up.MatchCSS(CSSselector))
+                    {
+                        coll.Add(up);
+                    }
+                }
+                else
+                {
+                    coll.Add(up);
+                }
+                up = up.parent;
+            }
+            return coll.ToArray();
+        }
+
+        public HTMLEntity[] Descendants()
+        {
+            return Descendants(string.Empty);
+        }
+
+        internal HTMLEntity[] Descendants(string CSSselector)
+        {
+            List<HTMLEntity> coll = new List<HTMLEntity>();
+
+            foreach (var item in this.Children)
+            {
+                if (!String.IsNullOrEmpty(CSSselector))
+                {
+                    if (item.MatchCSS(CSSselector))
+                    {
+                        coll.Add(item);
+                    }
+                }
+                else
+                {
+                    coll.Add(item);
+                }
+                    
+                foreach (var desc in item.Descendants(CSSselector))
+                {
+                    coll.Add(desc);
+                }
+            }
+            return coll.ToArray();
+        }
+
         public HTMLEntity Up()
         {
-            if (this.parent != null)
-            {
-                return this.parent.Up();
-            }
+            return this.Up(0);
+        }
+
+        public HTMLEntity Up(int index)
+        {
+            return this.Up(string.Empty, index);
+        }
+
+        public HTMLEntity Up(string CSSselector)
+        {
+            return this.Up(CSSselector, 0);
+        }
+
+        public HTMLEntity Up(string CSSselector, int index)
+        {
+            HTMLEntity[] anc = this.Ancestors(CSSselector);
+            if (anc.Length > index)
+                return this.Ancestors(CSSselector)[index];
             else
-            {
-                return this;
-            }
+                return null;
+        }
+
+        public HTMLEntity Down()
+        {
+            return this.Down(0);
+        }
+
+        public HTMLEntity Down(int index)
+        {
+            return this.Down(string.Empty, index);
+        }
+
+        public HTMLEntity Down(string CSSselector)
+        {
+            return this.Down(CSSselector, 0);
+        }
+
+        public HTMLEntity Down(string CSSselector, int index)
+        {
+            HTMLEntity[] desc = this.Descendants(CSSselector);
+            if (desc.Length > index)
+                return desc[index];
+            else
+                return null;
         }
 
         public override string ToString()
@@ -350,25 +474,40 @@ namespace JawTek.Web.Utility.HTML
         }
         public virtual string ToString(int indentLevel)
         {
-            if (this.tag == "html")
+            var html = this.Up("html") as HTML;
+            if ((html == null) && (this.MatchCSS("html")))
+                html = this as HTML;
+            DocType currentDocType = HTMLUtility.DocType;
+            if (html != null)
+                currentDocType = html.DocType;
+            if (this.MatchCSS("html"))
             {
                 if (JavascriptUtility.ContainsScripts)
                 {
-                    var body = (from t in this.Children
-                                where t.tag == "body"
-                                select t).FirstOrDefault();
+                    var body = this.Down("body");
                     if (body == null)
                     {
                         body = new HTMLEntity("body");
                         this.Children.Add(body);
                     }
                     body.Children.Add(JavascriptUtility.GetScript());
+                    JavascriptUtility.ClearCode();
+                }
+                if (currentDocType == DocType.HTML5)
+                {
+                    var head = this.Down("head");
+                    if (head == null)
+                    {
+                        head = new HTMLEntity("head");
+                        this.Children.Add(head);
+                    }
+                    if (!HTML5.HTML5Utility.ShivIncluded)
+                    {
+                        head.children.AddCollection(HTML5.HTML5Utility.GetHTML5Includes());
+                        HTML5.HTML5Utility.ShivIncluded = true;
+                    }
                 }
             }
-            var html = this.Up() as HTML;
-            DocType currentDocType = HTMLUtility.DocType;
-            if (html != null)
-                currentDocType = html.DocType;
             string indent = "";
             for (int i = 0; i < indentLevel; i++)
             {
@@ -1456,6 +1595,46 @@ namespace JawTek.Web.Utility.HTML
         }
     }
 
+    public class IEConditionalComment : HTMLEntity
+    {
+        private string _condition = "";
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public new string ID { get { return null; } set { } }
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public new string[] Classes { get { return null; } set { } }
+
+        public string Condition
+        {
+            get { return this._condition; }
+            set { this._condition = value; }
+        }
+
+        public IEConditionalComment() : this("") { }
+        public IEConditionalComment(string condition) : this(condition, null) { }
+        public IEConditionalComment(string condition, HTMLEntity child)
+            : base("", child)
+        {
+            this._condition = condition;
+        }
+
+        public override string ToString(int indentLevel)
+        {
+            string indent = "";
+            for (int i = 0; i < indentLevel; i++)
+            {
+                indent += HTMLUtility.IndentString;
+            }
+            StringBuilder sb = new StringBuilder();
+
+            sb.AppendFormat("{0}<!--[if {1}]>", indent, this._condition);
+            sb.Append(this.children.ToString(indentLevel));
+            sb.AppendFormat("{0}<![endif]-->", indent);
+
+            return sb.ToString();
+        }
+    }
+
     public enum InsertOptions
     {
         Before,
@@ -1664,6 +1843,48 @@ namespace JawTek.Web.Utility.HTML
             return objct;
         }
 
+    }
+}
+
+namespace JawTek.Web.Utility.HTML.HTML5
+{
+    public static class HTML5Utility
+    {
+        private const string str_shivIncluded = "JawTek.Web.Utility.HTML.HTML5.ShivIncluded";
+
+        internal static bool ShivIncluded
+        {
+            get
+            {
+                object obj = HttpContext.Current.Items[str_shivIncluded];
+                return (obj == null) ? false : (bool)obj;
+            }
+            set
+            {
+                if (HttpContext.Current.Items.Contains(str_shivIncluded))
+                {
+                    HttpContext.Current.Items[str_shivIncluded] = value;
+                }
+                else
+                {
+                    HttpContext.Current.Items.Add(str_shivIncluded, value);
+                }
+            }
+        }
+        public static HTMLEntity.HTMLEntityCollection GetHTML5Includes()
+        {
+            HTMLEntity.HTMLEntityCollection coll = new HTMLEntity.HTMLEntityCollection();
+            IEConditionalComment html5shiv =
+                new IEConditionalComment("IE",
+                    new Script("http://html5shiv.googlecode.com/svn/trunk/html5.js")
+                    );
+            CSSRuleCollection html5reset = new CSSRuleCollection();
+            CSSRule html5block = new CSSRule("section, article, aside, header, footer, nav, dialog, figure");
+            html5block.Properties.Add("display", "block");
+            html5reset.Add(html5block);
+            coll.Add(html5shiv).Add(html5reset.CreateStyle());
+            return coll;
+        }
     }
 }
 

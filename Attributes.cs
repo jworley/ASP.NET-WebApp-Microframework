@@ -5,9 +5,15 @@ using System.Text;
 
 namespace JawTek.Web
 {
+    /// <summary>
+    /// Apply to a WebApp method to only allow access if Request.IsAuthenticated
+    /// </summary>
     [global::System.AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
     public class WebAppLoginRequiredAttribute : Attribute
     {
+        /// <summary>
+        /// 
+        /// </summary>
         public WebAppLoginRequiredAttribute()
         {
         }
